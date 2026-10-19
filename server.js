@@ -11,10 +11,10 @@ const HELLO_PATH = "/hello";
 const HELLO_BODY = "Hello world";
 const NOT_FOUND_BODY = "Not Found";
 const SERVER_ERROR_BODY = "Internal Server Error";
-const PLAIN_TEXT = "text/plain";
 // Request targets are resolved against this fixed base, never against the client-supplied
 // Host header, so a caller cannot influence the parsed authority or the routing key.
 const URL_BASE = "http://localhost";
+const PLAIN_TEXT = "text/plain";
 
 // Attaching a SIGINT listener replaces Node's default handler, so the process has to end
 // itself and a repeated signal must not start a second shutdown.
