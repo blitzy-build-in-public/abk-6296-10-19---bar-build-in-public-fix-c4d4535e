@@ -98,6 +98,14 @@ function sendPlainText(response, statusCode, body) {
 // Routes one request: parse the target, log the request, then dispatch to the handler for
 // the matched route or to the catch-all.
 function handleRequest(request, response) {
+  // No application code reads or inspects a request body: this discards whatever a client
+  // sends, so nothing about a body is parsed, logged or kept, and a body is consumed as it
+  // arrives rather than left for the runtime to discard once the response is out. Consuming
+  // one still moves resident memory while each chunk is read off the wire and dropped: the
+  // runtime's per-read buffers, which garbage collection reclaims, plus the allocator's
+  // high-water mark, which it need not. None of it is state this program keeps.
+  request.resume();
+
   const pathname = parsePathname(request.url);
 
   // The logged path is the one the router matches on, and the log call precedes the
