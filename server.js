@@ -15,10 +15,20 @@ const SERVER_ERROR_BODY = "Internal Server Error";
 // Host header, so a caller cannot influence the parsed authority or the routing key.
 const URL_BASE = "http://localhost";
 const PLAIN_TEXT = "text/plain";
+// A configured value that reaches a diagnostic must not be able to break it across lines or
+// forge an entry in a captured log, so C0 controls, DEL, C1 controls and the Unicode line and
+// paragraph separators are all treated as non-printing.
+const NON_PRINTING_CHARACTERS = /[\u0000-\u001f\u007f-\u009f\u2028\u2029]/g;
 
 // Attaching a SIGINT listener replaces Node's default handler, so the process has to end
 // itself and a repeated signal must not start a second shutdown.
 let isStopping = false;
+
+// Replaces every non-printing character in a value that is about to be echoed, so a crafted
+// PORT cannot split one diagnostic across lines or forge a line in a captured log.
+function neutralizeControlCharacters(value) {
+  return value.replace(NON_PRINTING_CHARACTERS, "?");
+}
 
 // Turns process.env.PORT into a usable port number, or throws an Error whose message names
 // the offending value, the cause and the action to take.
@@ -39,7 +49,7 @@ function resolvePort(rawPort) {
   if (isIntegerString && port < MIN_PORT) {
     throw new Error(
       'Configuration error: invalid PORT "' +
-        rawPort +
+        neutralizeControlCharacters(rawPort) +
         '". Ports below ' +
         MIN_PORT +
         " are privileged and require root or CAP_NET_BIND_SERVICE; set PORT to an integer between " +
@@ -52,7 +62,7 @@ function resolvePort(rawPort) {
 
   throw new Error(
     'Configuration error: invalid PORT "' +
-      rawPort +
+      neutralizeControlCharacters(rawPort) +
       '". Set PORT to an integer between ' +
       MIN_PORT +
       " and " +
