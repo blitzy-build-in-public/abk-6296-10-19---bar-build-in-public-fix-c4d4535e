@@ -2,7 +2,8 @@
 
 const http = require("node:http");
 
-// Every literal the program uses is defined here, once, and used from here everywhere.
+// The port bounds and default, the one route's method and path, the response bodies, the
+// URL base for target parsing and the text/plain content type.
 const DEFAULT_PORT = 3000;
 const MIN_PORT = 1024;
 const MAX_PORT = 65535;
@@ -24,8 +25,8 @@ const NON_PRINTING_CHARACTERS = /[\u0000-\u001f\u007f-\u009f\u2028\u2029]/g;
 // itself and a repeated signal must not start a second shutdown.
 let isStopping = false;
 
-// Replaces every non-printing character in a value that is about to be echoed, so a crafted
-// PORT cannot split one diagnostic across lines or forge a line in a captured log.
+// Returns a copy of value with every non-printing character replaced, so the value is safe
+// to echo into a single-line diagnostic.
 function neutralizeControlCharacters(value) {
   return value.replace(NON_PRINTING_CHARACTERS, "?");
 }
@@ -86,7 +87,8 @@ function logRequest(method, pathname) {
   console.log(new Date().toISOString() + " " + method + " " + pathname);
 }
 
-// The one write point for every response: status, content type, byte-exact length, body.
+// The single write point for responses the request path produces: status, content type,
+// byte-exact length, body.
 function sendPlainText(response, statusCode, body) {
   response.writeHead(statusCode, {
     "Content-Type": PLAIN_TEXT,
@@ -98,12 +100,8 @@ function sendPlainText(response, statusCode, body) {
 // Routes one request: parse the target, log the request, then dispatch to the handler for
 // the matched route or to the catch-all.
 function handleRequest(request, response) {
-  // No application code reads or inspects a request body: this discards whatever a client
-  // sends, so nothing about a body is parsed, logged or kept, and a body is consumed as it
-  // arrives rather than left for the runtime to discard once the response is out. Consuming
-  // one still moves resident memory while each chunk is read off the wire and dropped: the
-  // runtime's per-read buffers, which garbage collection reclaims, plus the allocator's
-  // high-water mark, which it need not. None of it is state this program keeps.
+  // No application code reads or inspects a request body: it is discarded as it arrives, and
+  // nothing about it is parsed, logged or kept.
   request.resume();
 
   const pathname = parsePathname(request.url);
@@ -136,7 +134,6 @@ function requestListener(request, response) {
   try {
     handleRequest(request, response);
   } catch (error) {
-    // stderr is the only sink for internal detail.
     console.error("Request error: " + (error.stack || error.message));
 
     if (response.headersSent) {
