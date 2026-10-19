@@ -140,6 +140,33 @@ function requestListener(request, response) {
   }
 }
 
+// A CONNECT request arrives as a bare socket instead of the request/response pair a 'request'
+// event carries, and with no 'connect' listener the runtime closes the connection without a
+// reply, so the catch-all answer goes to that socket directly.
+function connectListener(request, clientSocket) {
+  const pathname = parsePathname(request.url);
+
+  // The logged path is the one the router would match on, exactly as in handleRequest.
+  logRequest(request.method, pathname === null ? request.url : pathname);
+
+  // The runtime detaches its own socket listeners when it hands a CONNECT request over, so a
+  // client that vanishes mid-answer would otherwise raise an unhandled 'error' event and stop
+  // the process; the socket is destroyed instead and nothing further is written to the client.
+  clientSocket.on("error", function onClientSocketError(error) {
+    console.error("Client socket error: " + (error.code || error.message));
+    clientSocket.destroy();
+  });
+
+  clientSocket.end(
+    "HTTP/1.1 404 Not Found\r\nContent-Type: " +
+      PLAIN_TEXT +
+      "\r\nContent-Length: " +
+      Buffer.byteLength(NOT_FOUND_BODY) +
+      "\r\n\r\n" +
+      NOT_FOUND_BODY
+  );
+}
+
 // Stops the server exactly once: announce the signal, close the listener, then exit 0.
 function stopServer(server) {
   if (isStopping) {
@@ -163,8 +190,8 @@ function stopServer(server) {
   }
 }
 
-// Creates the server, attaches its error handling, starts listening and registers the
-// shutdown handler, in that order.
+// Creates the server, attaches its error and connect listeners, starts listening and
+// registers the shutdown handler, in that order.
 function startServer(port) {
   const server = http.createServer(requestListener);
 
@@ -183,6 +210,8 @@ function startServer(port) {
       process.exit(1);
     }
   });
+
+  server.on("connect", connectListener);
 
   server.listen(port, function onListening() {
     console.log("Server listening on port " + port);
