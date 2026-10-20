@@ -122,7 +122,7 @@ Configuration error: invalid PORT "abc". Set PORT to an integer between 1024 and
 exit=1
 ```
 
-### Shutdown (stdout, exit status 0)
+### Shutdown (stdout, server exit status 0)
 
 ```text
 Received SIGINT. Stopping server.
@@ -138,7 +138,7 @@ Received SIGINT. Stopping server.
 Server closed. Exiting.
 ```
 
-The prompt then returns with exit status `0`, and the port is free again for the next run. From another shell, the same shutdown is `kill -INT` sent to the server's process id — `$!` when you started it with `node server.js &`. Under `npm start &` that pid is npm's, and a `SIGINT` sent to npm alone is not forwarded, so signal the `node` child itself, or start the server with `node server.js &` when you need to signal it from another shell.
+The prompt then returns with the server's own exit status `0`, and the port is free again for the next run. Under `npm start` it is the npm wrapper's status the prompt reports instead: CTRL+C reaches the whole foreground process group, so npm is signalled along with the server, and a POSIX shell reports `130` — `128` plus SIGINT's signal number `2` — while the two stop lines above, the freed port and the server's own clean exit are unchanged, and a `SIGINT` delivered to the `node` child itself leaves the prompt reporting `0`, because npm passes its child's status through. From another shell, the same shutdown is `kill -INT` sent to the server's process id — `$!` when you started it with `node server.js &`. Under `npm start &` that pid is npm's, and a `SIGINT` sent to npm alone is not forwarded, so signal the `node` child itself, or start the server with `node server.js &` when you need to signal it from another shell.
 
 CTRL+C more than once is harmless: the shutdown runs only once, and a second signal changes nothing. One runtime detail is worth knowing: on Node 18.0 and 18.1, if a client is still holding an idle keep-alive connection, the `Server closed. Exiting.` line appears when that connection's keep-alive window expires (up to about five seconds) rather than immediately — a Node version difference, not a hang. Newer runtimes close idle connections at once.
 
