@@ -63,7 +63,7 @@ curl -s -i -X POST http://localhost:3000/hello
 
 ## Expected output
 
-**stdout** carries operator events: the startup line, one line per request, and the two shutdown lines. **stderr** carries problems: a configuration error, a port that cannot be bound, an unexpected server error or an unexpected request error. A configuration or bind failure exits with status `1`; a clean shutdown exits with status `0`.
+**stdout** carries operator events: the startup line, one line per request, and the two shutdown lines. **stderr** carries problems: a configuration error, a port that cannot be bound, an unexpected server error, an unexpected request error or a client socket error on a `CONNECT` request. A configuration error, a bind failure or any other fatal server error exits with status `1`; a clean shutdown exits with status `0`.
 
 ### Startup
 
@@ -103,13 +103,13 @@ Only `Content-Type` and `Content-Length` are set by the application; `Date`, `Co
 
 ### Request log line (stdout)
 
-Each request adds exactly one line to stdout, written before the response:
+Each request the server handles adds exactly one line to stdout, written before the response:
 
 ```text
 2026-10-19T20:43:18.803Z GET /hello
 ```
 
-The three fields are the timestamp from `Date.prototype.toISOString()` (UTC, ISO-8601, with milliseconds), the HTTP method, and the request path the server routed on. Nothing else is logged per request — no headers, no cookies, no query strings.
+The three fields are the timestamp from `Date.prototype.toISOString()` (UTC, ISO-8601, with milliseconds), the HTTP method, and the request path the server routed on. Nothing else is logged per request — no headers, no cookies and no query strings — for any target the server can parse; a target the URL parser rejects has no pathname to route on, so it is logged as received, query string included. A request the runtime rejects before the listener runs is not logged by the application at all.
 
 ### Configuration error (stderr, exit status 1)
 
@@ -138,7 +138,7 @@ Received SIGINT. Stopping server.
 Server closed. Exiting.
 ```
 
-The prompt then returns with exit status `0`, and the port is free again for the next run. From another shell, the same shutdown is `kill -INT` sent to the server's process id — the `echo $!` value if you started the server in the background.
+The prompt then returns with exit status `0`, and the port is free again for the next run. From another shell, the same shutdown is `kill -INT` sent to the server's process id — `$!` when you started it with `node server.js &`. Under `npm start &` that pid is npm's, and a `SIGINT` sent to npm alone is not forwarded, so signal the `node` child itself, or start the server with `node server.js &` when you need to signal it from another shell.
 
 CTRL+C more than once is harmless: the shutdown runs only once, and a second signal changes nothing. One runtime detail is worth knowing: on Node 18.0 and 18.1, if a client is still holding an idle keep-alive connection, the `Server closed. Exiting.` line appears when that connection's keep-alive window expires (up to about five seconds) rather than immediately — a Node version difference, not a hang. Newer runtimes close idle connections at once.
 
@@ -155,6 +155,8 @@ CTRL+C more than once is harmless: the shutdown runs only once, and a second sig
 - Values below `1024` are refused in the configuration check, before any socket call is made, because such ports are privileged. No flag or variable bypasses this check.
 
 Use another port by setting the variable for that run:
+
+The command form below is POSIX shell syntax; on Windows the same override is `set "PORT=4000" && node server.js` in cmd.exe (the quotes keep the space before `&&` out of the value), or `$env:PORT=4000; node server.js` in PowerShell. Only that override form and the `; echo "exit=$?"` used below to print an exit status are shell-specific: the default `3000`, the accepted `1024`–`65535` range, the privileged-port refusal and every message shown are the same on every platform.
 
 ```bash
 PORT=4000 node server.js
